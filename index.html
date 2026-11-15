@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ff3d7f">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Tonic Piano</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a friendly, encouraging coach; playful but tidy
+   IDEA: the piano itself — ivory and black keys that light up under your fingers
+   PICTURE: a winding path of round lesson keys; in practice, falling notes over a live keyboard
+   COLOUR and TYPE: white/ink like the keys, pink = right hand, blue = left hand, green = correct; Nunito 900 + 600
+   LAYOUT: app shell — top bar, scrolling view, bottom tabs; practice runs full-screen */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121016);--ink:light-dark(#17141c,#f3f1f6);--mute:light-dark(#6b6475,#a39cae);--soft:light-dark(#f5f3f8,#1d1a23);--line:light-dark(#e6e2ec,#2e2a36);--rh:#ff3d7f;--lh:#2f7bff;--ok:#12b76a;--bad:#f04438;--gold:#ffb020}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Nunito,system-ui,sans-serif;font-weight:600;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:3px solid var(--lh);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+header.top{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:900;font-size:22px;letter-spacing:-.02em}
+.chip{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;min-height:40px;cursor:pointer;max-width:60%}
+.chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mute);flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--ok) 25%,transparent)}
+.dot.flash{background:var(--rh)}
+main{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.view{display:none;padding:22px max(4vw,16px) 40px;max-width:880px;margin:0 auto}
+.view.on{display:block}
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--bg)}
+nav.tabs button{background:none;border:0;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:800;color:var(--mute);min-height:58px;cursor:pointer}
+nav.tabs button.on{color:var(--ink)}
+nav.tabs svg{width:24px;height:24px}
+nav.tabs button.on svg{color:var(--rh)}
+h1{font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0 0 6px;font-weight:900;letter-spacing:-.02em;text-wrap:balance}
+h2{font-size:20px;line-height:1.15;margin:0;font-weight:900}
+.sub{color:var(--mute);margin:0 0 16px}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+.stat{background:var(--soft);border-radius:14px;padding:8px 14px;display:flex;align-items:center;gap:8px;font-weight:900}
+.stat svg{width:20px;height:20px}
+.hero{background:var(--rh);color:#fff;border-radius:26px;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:center;box-shadow:0 8px 0 #c21d58}
+.hero small{font-weight:800;opacity:.85}
+.hero h2{font-size:clamp(24px,5vw,32px);margin:2px 0 12px}
+.hero svg{width:100%;height:auto;display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.2))}
+.hero .btn{background:#fff;color:var(--rh);box-shadow:0 4px 0 rgba(0,0,0,.2)}
+@media(max-width:600px){.hero{grid-template-columns:1fr}.hero svg{order:-1}}
+.unit{margin:34px 0 6px;text-align:center}
+.unit small{color:var(--mute);font-weight:700;display:block}
+.path{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 0}
+.node{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;cursor:pointer;transform:translateX(var(--dx));padding:0}
+.disc{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;background:var(--rh);color:#fff;box-shadow:0 6px 0 #c21d58;font-weight:900;font-size:26px}
+.disc svg{width:32px;height:32px}
+.node.done .disc{background:var(--ok);box-shadow:0 6px 0 #0a7a47}
+.node.lock .disc{background:var(--line);color:var(--mute);box-shadow:0 6px 0 color-mix(in srgb,var(--line) 70%,#000)}
+.node.next .disc{animation:pulse 1.8s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.node b{font-size:14px;max-width:160px;text-align:center;line-height:1.2}
+.stars{color:var(--gold);font-size:15px;letter-spacing:2px;line-height:1}
+.stars i{color:var(--line);font-style:normal}
+.seg{display:flex;background:var(--soft);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap}
+.seg button{flex:1;border:0;background:none;border-radius:9px;min-height:40px;padding:0 10px;font-weight:800;cursor:pointer;color:var(--mute);white-space:nowrap}
+.seg button.on{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.songs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px;margin-top:16px}
+.song{display:flex;gap:14px;align-items:center;text-align:left;background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:12px 14px;cursor:pointer;min-height:82px}
+.cover{width:56px;height:56px;border-radius:14px;flex:none;overflow:hidden}
+.song b{display:block;font-weight:900;line-height:1.2}
+.song small{color:var(--mute);font-weight:700}
+.btn{min-height:48px;border-radius:14px;border:0;background:var(--rh);color:#fff;font-weight:900;font-size:17px;padding:0 22px;cursor:pointer;box-shadow:0 4px 0 #c21d58}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 #c21d58}
+.btn.ghost{background:var(--soft);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.box{background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:16px}
+label.f{display:block;font-weight:900;font-size:14px;margin:16px 0 6px}
+label.f:first-child{margin-top:0}
+ol.steps{padding-left:22px;margin:8px 0 0}
+ol.steps li{margin:6px 0}
+.note-big{font-size:clamp(44px,12vw,72px);font-weight:900;line-height:1;letter-spacing:-.03em}
+.dev{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-weight:800}
+.dev:first-child{border-top:0}
+.muted{color:var(--mute)}
+.hist{display:flex;gap:6px;flex-wrap:wrap;min-height:34px;margin-top:10px}
+.hist span{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px 9px;font-weight:800;font-size:14px}
+.freebox{position:relative;height:clamp(170px,34vh,260px);margin-top:14px}
+.freebox canvas,.stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:800;opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#play{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:10;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#play.on{display:flex}
+.pbar{display:flex;align-items:center;gap:8px;padding:6px 10px}
+.ibtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--soft);display:grid;place-items:center;cursor:pointer;flex:none}
+.ibtn svg{width:22px;height:22px}
+.ptitle{flex:1;display:flex;flex-direction:column;gap:5px}
+.ptitle b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1}
+.prog{height:8px;border-radius:9px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--ok);border-radius:9px}
+.score{font-weight:900;font-size:14px;color:var(--mute);white-space:nowrap}
+.stage{flex:1;position:relative}
+.modal{position:absolute;inset:0;display:none;place-items:center;background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding:14px;z-index:5;overflow:auto}
+.modal.on{display:grid}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:24px;padding:22px;width:min(460px,100%);box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.card h2{font-size:26px;margin-bottom:6px}
+.card p{margin:0 0 6px}
+.hint{background:color-mix(in srgb,var(--lh) 12%,transparent);color:var(--ink);border-radius:12px;padding:8px 12px;font-size:14px;margin-top:12px}
+.bigstars{display:flex;justify-content:center;gap:8px;margin:6px 0 10px}
+.bigstars svg{width:56px;height:56px}
+.res{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;margin:10px 0 16px}
+.res div{background:var(--soft);border-radius:14px;padding:10px 4px}
+.res b{display:block;font-size:24px;font-weight:900;line-height:1.1}
+.res small{color:var(--mute);font-weight:700;font-size:13px}
+@media(prefers-reduced-motion:reduce){.node.next .disc{animation:none}#toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="3" width="28" height="24" rx="6" fill="#ff3d7f"/><rect x="5" y="7" width="5" height="16" rx="1.5" fill="#fff"/><rect x="12.5" y="7" width="5" height="16" rx="1.5" fill="#fff"/><rect x="20" y="7" width="5" height="16" rx="1.5" fill="#fff"/><rect x="8.5" y="7" width="3.5" height="9" rx="1" fill="#17141c"/><rect x="16" y="7" width="3.5" height="9" rx="1" fill="#17141c"/></svg>
+      Tonic
+    </div>
+    <button class="chip" id="chip"><i class="dot" id="chipDot"></i><span id="chipTxt">Connect keyboard</span></button>
+  </header>
+  <main id="main">
+    <section class="view on" id="v-learn"></section>
+    <section class="view" id="v-songs">
+      <h1>Songs</h1>
+      <p class="sub">Classic tunes, each with a right-hand melody and a left-hand part.</p>
+      <div class="seg" id="lvlSeg"><button data-l="0" class="on">All</button><button data-l="1">Beginner</button><button data-l="2">Easy</button><button data-l="3">Intermediate</button></div>
+      <div class="songs" id="songList"></div>
+    </section>
+    <section class="view" id="v-free">
+      <h1>Free play</h1>
+      <p class="sub">Play anything on your Casio or the keys below. Tonic names the notes and chords.</p>
+      <div class="box">
+        <div class="row" style="justify-content:space-between;align-items:flex-end">
+          <div><div class="note-big" id="freeNote">–</div><div class="muted" id="freeChord" style="font-weight:800;min-height:24px">Press a key</div></div>
+          <div class="row"><button class="ibtn" id="octDn" aria-label="Lower octave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><button class="ibtn" id="octUp" aria-label="Higher octave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button></div>
+        </div>
+        <div class="hist" id="freeHist"></div>
+        <div class="freebox"><canvas id="freeCv"></canvas></div>
+      </div>
+    </section>
+    <section class="view" id="v-setup">
+      <h1>Keyboard &amp; settings</h1>
+      <p class="sub">Connect your Casio with a USB cable so Tonic can hear every key you press.</p>
+      <div class="box" id="connBox"></div>
+      <div class="box">
+        <h2>How to connect your Casio</h2>
+        <ol class="steps">
+          <li>Find the USB port on the back of the keyboard. It may be a square USB-B port marked "USB" or "to Host", or a micro-USB / USB-C port on newer Casiotone models.</li>
+          <li>Plug it into your phone. Use a USB-B to USB-C cable, or your keyboard's normal USB cable with a USB-C OTG adapter.</li>
+          <li>Switch the keyboard on, tap <b>Connect keyboard</b> above and allow access to MIDI devices.</li>
+          <li>Press any key. Its name should appear above.</li>
+        </ol>
+        <p class="muted" style="margin:12px 0 0;font-size:14px">This works in Chrome on Android. Older models with only round 5-pin MIDI sockets need a USB-MIDI adapter. In the Claude chat preview, USB devices may be blocked, so use the full app link to connect.</p>
+      </div>
+      <div class="box" id="setBox"></div>
+    </section>
+  </main>
+  <nav class="tabs" id="tabs">
+    <button data-v="learn" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-4.5"/></svg>Learn</button>
+    <button data-v="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Songs</button>
+    <button data-v="free"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M8 5v14M14 5v14M6 5v8h3V5M12 5v8h3V5" /></svg>Free play</button>
+    <button data-v="setup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7z"/><path d="M12 17v4"/></svg>Keyboard</button>
+  </nav>
+</div>
+
+<div id="play">
+  <div class="pbar">
+    <button class="ibtn" id="pClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="ptitle"><b id="pTitle">Song</b><div class="prog"><i id="pProg"></i></div></div>
+    <span class="score" id="pScore"></span>
+    <button class="ibtn" id="pPause" aria-label="Pause and options"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="modal" id="mIntro"><div class="card" id="introCard"></div></div>
+    <div class="modal" id="mRes"><div class="card" id="resCard"></div></div>
+  </div>
+</div>
+<div id="toast"></div>
+<i id="probe" style="position:absolute;width:0;height:0;overflow:hidden"></i>
+
+<script>
+{
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const store={get(k,d){try{const v=localStorage.getItem('tonic_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('tonic_'+k,JSON.stringify(v))}catch(e){}}};
+const NN=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+const isBlack=m=>[1,3,6,8,10].includes(((m%12)+12)%12);
+const nname=(m,oct=true)=>NN[((m%12)+12)%12]+(oct?(Math.floor(m/12)-1):'');
+function pn(s){const r=/^([A-G])([#b]?)(-?\d)$/.exec(s);if(!r)throw Error('bad note '+s);return 12*(+r[3]+1)+{C:0,D:2,E:4,F:5,G:7,A:9,B:11}[r[1]]+(r[2]==='#'?1:r[2]==='b'?-1:0)}
+function seq(str,h){const out=[];let t=0;(str||'').trim().split(/\s+/).forEach(tok=>{if(!tok||tok==='|')return;const[n,d]=tok.split('/');const dur=d?parseFloat(d):1;if(n!=='R')n.split('+').forEach(x=>out.push({m:pn(x),s:t,d:dur,h}));t+=dur});return out}
+
+/* ---------- content ---------- */
+const SONGS=[
+ {id:'buns',t:'Hot Cross Buns',by:'Traditional',lvl:1,bpm:90,
+  rh:'E4 D4 C4/2 | E4 D4 C4/2 | C4/.5 C4/.5 C4/.5 C4/.5 D4/.5 D4/.5 D4/.5 D4/.5 | E4 D4 C4/2',
+  lh:'C3/4 | C3/4 | C3/2 G2/2 | C3/4'},
+ {id:'mary',t:'Mary Had a Little Lamb',by:'Traditional',lvl:1,bpm:100,
+  rh:'E4 D4 C4 D4 | E4 E4 E4/2 | D4 D4 D4/2 | E4 G4 G4/2 | E4 D4 C4 D4 | E4 E4 E4 E4 | D4 D4 E4 D4 | C4/4',
+  lh:'C3/4 | C3/4 | G2/4 | C3/4 | C3/4 | C3/4 | G2/4 | C3/4'},
+ {id:'twinkle',t:'Twinkle Twinkle Little Star',by:'Traditional',lvl:1,bpm:96,
+  rh:'C4 C4 G4 G4 | A4 A4 G4/2 | F4 F4 E4 E4 | D4 D4 C4/2 | G4 G4 F4 F4 | E4 E4 D4/2 | G4 G4 F4 F4 | E4 E4 D4/2 | C4 C4 G4 G4 | A4 A4 G4/2 | F4 F4 E4 E4 | D4 D4 C4/2',
+  lh:'C3/4 | F3/2 C3/2 | F3/2 C3/2 | G2/2 C3/2 | C3/2 F3/2 | C3/2 G2/2 | C3/2 F3/2 | C3/2 G2/2 | C3/4 | F3/2 C3/2 | F3/2 C3/2 | G2/2 C3/2'},
+ {id:'jacques',t:'Frère Jacques',by:'Traditional French',lvl:1,bpm:100,
+  rh:'C4 D4 E4 C4 | C4 D4 E4 C4 | E4 F4 G4/2 | E4 F4 G4/2 | G4/.5 A4/.5 G4/.5 F4/.5 E4 C4 | G4/.5 A4/.5 G4/.5 F4/.5 E4 C4 | C4 G3 C4/2 | C4 G3 C4/2',
+  lh:'C3/4 | C3/4 | C3/4 | C3/4 | C3/4 | C3/4 | C3/2 G2/2 | C3/4'},
+ {id:'london',t:'London Bridge',by:'Traditional',lvl:2,bpm:100,
+  rh:'G4/1.5 A4/.5 G4 F4 | E4 F4 G4/2 | D4 E4 F4/2 | E4 F4 G4/2 | G4/1.5 A4/.5 G4 F4 | E4 F4 G4/2 | D4/2 G4/2 | E4 C4/3',
+  lh:'C3/4 | C3/4 | G2/4 | C3/4 | C3/4 | C3/4 | G2/4 | C3/4'},
+ {id:'ode',t:'Ode to Joy',by:'Ludwig van Beethoven',lvl:2,bpm:100,
+  rh:'E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | E4/1.5 D4/.5 D4/2 | E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | D4/1.5 C4/.5 C4/2 | D4 D4 E4 C4 | D4 E4/.5 F4/.5 E4 C4 | D4 E4/.5 F4/.5 E4 D4 | C4 D4 G3/2 | E4 E4 F4 G4 | G4 F4 E4 D4 | C4 C4 D4 E4 | D4/1.5 C4/.5 C4/2',
+  lh:'C3/4 | G2/4 | C3/4 | G2/4 | C3/4 | G2/4 | C3/4 | G2/2 C3/2 | G2/4 | G2/2 C3/2 | G2/2 C3/2 | C3/2 G2/2 | C3/4 | G2/4 | C3/4 | G2/2 C3/2'},
+ {id:'jingle',t:'Jingle Bells',by:'James Lord Pierpont',lvl:2,bpm:110,
+  rh:'E4 E4 E4/2 | E4 E4 E4/2 | E4 G4 C4/1.5 D4/.5 | E4/4 | F4 F4 F4/1.5 F4/.5 | F4 E4 E4 E4/.5 E4/.5 | E4 D4 D4 E4 | D4/2 G4/2 | E4 E4 E4/2 | E4 E4 E4/2 | E4 G4 C4/1.5 D4/.5 | E4/4 | F4 F4 F4/1.5 F4/.5 | F4 E4 E4 E4/.5 E4/.5 | G4 G4 F4 D4 | C4/4',
+  lh:'C3/4 | C3/4 | C3/4 | C3/4 | F3/4 | C3/4 | G2/4 | G2/4 | C3/4 | C3/4 | C3/4 | C3/4 | F3/4 | C3/4 | G2/4 | C3/4'},
+ {id:'bday',t:'Happy Birthday',by:'Mildred & Patty Hill',lvl:2,bpm:100,ts:3,
+  rh:'G4/.75 G4/.25 | A4 G4 C5 | B4/2 G4/.75 G4/.25 | A4 G4 D5 | C5/2 G4/.75 G4/.25 | G5 E5 C5 | B4 A4 F5/.75 F5/.25 | E5 C5 D5 | C5/3',
+  lh:'R/1 | C3/3 | G2/3 | G2/3 | C3/3 | C3/3 | F3/3 | C3/2 G2/1 | C3/3'},
+ {id:'minuet',t:'Minuet in G',by:'Christian Petzold',lvl:3,bpm:100,ts:3,
+  rh:'D5 G4/.5 A4/.5 B4/.5 C5/.5 | D5 G4 G4 | E5 C5/.5 D5/.5 E5/.5 F#5/.5 | G5 G4 G4 | C5 D5/.5 C5/.5 B4/.5 A4/.5 | B4 C5/.5 B4/.5 A4/.5 G4/.5 | F#4 G4/.5 A4/.5 B4/.5 G4/.5 | A4/3',
+  lh:'G3/2 A3/1 | B3/3 | C4/3 | B3/3 | A3/3 | G3/3 | D4/1 B3/1 G3/1 | D4/1 D3/1 C4/1'},
+ {id:'elise',t:'Für Elise (opening)',by:'Ludwig van Beethoven',lvl:3,bpm:66,
+  rh:'E5/.5 D#5/.5 E5/.5 D#5/.5 E5/.5 B4/.5 D5/.5 C5/.5 A4/1.5 C4/.5 E4/.5 A4/.5 B4/1.5 E4/.5 G#4/.5 B4/.5 C5/1.5 E4/.5 E5/.5 D#5/.5 E5/.5 D#5/.5 E5/.5 B4/.5 D5/.5 C5/.5 A4/1.5 C4/.5 E4/.5 A4/.5 B4/1.5 E4/.5 C5/.5 B4/.5 A4/3',
+  lh:'R/4 A2/1.5 R/1.5 E2/1.5 R/1.5 A2/1.5 R/4.5 A2/1.5 R/1.5 E2/1.5 R/1.5 A2/3'}
+];
+const song=id=>SONGS.find(s=>s.id===id);
+const UNITS=[
+ {t:'First notes',d:'Middle C and the right-hand five-finger position',ls:[
+  {id:'l1',t:'Middle C',bpm:70,rh:'C4/2 C4/2 C4/2 C4/2 C4 C4 C4/2',tip:'Middle C is the white key just left of the pair of black keys nearest the middle. It is the third C from the left on 61- and 76-key Casios, and the fourth on 88-key models. Play it with your right thumb each time it lights up.'},
+  {id:'l2',t:'C, D and E',bpm:76,rh:'C4 D4 E4/2 | E4 D4 C4/2 | C4 D4 E4 D4 | C4/4',tip:'Right thumb on C, finger 2 on D, finger 3 on E. Keep your fingers curved, as if holding a small ball.'},
+  {id:'l3',t:'Five fingers',bpm:80,rh:'C4 D4 E4 F4 | G4/4 | G4 F4 E4 D4 | C4/4 | C4 E4 G4/2 | G4 E4 C4/2',tip:'One finger per key: thumb on C through pinky on G. This is called C position.'},
+  {id:'l4',t:'Hot Cross Buns',bpm:84,rh:song('buns').rh,tip:'Your first real tune: three notes, played with fingers 3, 2 and 1.'}]},
+ {t:'Left hand',d:'Meet the bass side of the keyboard',ls:[
+  {id:'l5',t:'Left-hand C',bpm:70,lh:'C3/2 C3/2 C3 C3 C3/2',tip:'Find the C one octave below Middle C. In C position your left pinky (finger 5) plays it.'},
+  {id:'l6',t:'Walk up, walk down',bpm:76,lh:'C3 D3 E3 F3 | G3/4 | G3 F3 E3 D3 | C3/4',tip:'Left pinky on C, thumb on G. Walk up the five keys and back down.'},
+  {id:'l7',t:'Bass notes',bpm:76,lh:'C3/2 G2/2 | C3/2 G2/2 | F2/2 G2/2 | C3/4',tip:'Bass notes hold up a melody. Reach down from C to the G and F below it.'}]},
+ {t:'Both hands',d:'Make your hands work as a team',ls:[
+  {id:'l8',t:'Taking turns',bpm:80,rh:'C4 D4 E4/2 R/4 E4 D4 C4/2 R/4',lh:'R/4 C3 D3 E3/2 R/4 E3 D3 C3/2',tip:'Your right hand plays, then your left hand answers. Pink notes are for the right hand, blue for the left.'},
+  {id:'l9',t:'Together',bpm:76,rh:'C4 D4 E4 F4 | G4/4 | G4 F4 E4 D4 | C4/4',lh:'C3/4 | C3/4 | G2/4 | C3/4',tip:'Play the blue bass note at the same moment as the pink melody note, and hold it while the right hand moves on.'},
+  {id:'l10',t:'Mary Had a Little Lamb',bpm:90,rh:song('mary').rh,lh:song('mary').lh,tip:'A full song with both hands. Try Wait mode first, then Play mode when you feel ready.'}]},
+ {t:'Chords',d:'Three or more notes at once',ls:[
+  {id:'l11',t:'C major chord',bpm:70,rh:'C4+E4+G4/2 R/2 C4+E4+G4/2 R/2 C4 E4 G4/2 C4+E4+G4/4',tip:'Fingers 1, 3 and 5 on C, E and G. Press all three together.'},
+  {id:'l12',t:'C, F and G',bpm:66,rh:'C4+E4+G4/4 C4+F4+A4/4 B3+D4+G4/4 C4+E4+G4/4',lh:'C3/4 F2/4 G2/4 C3/4',tip:'These three chords accompany thousands of songs. Your thumb stays near C while the other fingers shift.'}]},
+ {t:'Reading music',d:'Black keys and the staff',ls:[
+  {id:'l13',t:'Black keys',bpm:76,rh:'F4 F#4 G4/2 | G4 F#4 F4/2 | C4 C#4 D4/2 | D4 C#4 C4/2',tip:'A sharp (♯) is the black key just to the right of a white key. F♯ sits between F and G.'},
+  {id:'l14',t:'Read treble notes',bpm:70,gen:'treble',notation:'sheet',names:false,tip:'No falling notes this time. Read each note on the treble staff (the top five lines) and play it with your right hand.'},
+  {id:'l15',t:'Read bass notes',bpm:70,gen:'bass',notation:'sheet',names:false,tip:'Now the bass staff (the bottom five lines). Read each note and play it with your left hand.'}]}
+];
+const LES=UNITS.flatMap((u,ui)=>u.ls.map(l=>({...l,unit:ui})));
+const LVL=['','Beginner','Easy','Intermediate'];
+
+/* ---------- state ---------- */
+const S=Object.assign({sound:'auto',names:true,notation:'auto',mode:'wait',metro:false,unlock:false},store.get('set',{}));
+const saveS=()=>store.set('set',S);
+let prog=store.get('prog',{});
+const today=()=>new Date().toLocaleDateString('en-CA');
+function streak(){const days=new Set(store.get('days',[]));let d=new Date(),n=0;if(!days.has(d.toLocaleDateString('en-CA')))d=new Date(Date.now()-864e5);while(days.has(d.toLocaleDateString('en-CA'))){n++;d=new Date(d.getTime()-864e5)}return n}
+const totalStars=()=>Object.values(prog).reduce((a,b)=>a+b,0);
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2600)}
+
+/* ---------- colours for canvas ---------- */
+const C={};
+function readColors(){const p=$('#probe');['bg','ink','mute','soft','line','rh','lh','ok','bad','gold'].forEach(k=>{p.style.color='var(--'+k+')';C[k]=getComputedStyle(p).color});drawFree()}
+const al=(c,a)=>c.startsWith('rgba')?c:c.replace('rgb(','rgba(').replace(')',','+a+')');
+new MutationObserver(readColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readColors)}catch(e){}
+
+/* ---------- audio ---------- */
+let AC=null,master=null;
+function ac(){if(!AC){const K=window.AudioContext||window.webkitAudioContext;if(!K)return null;AC=new K();const comp=AC.createDynamicsCompressor();master=AC.createGain();master.gain.value=.8;master.connect(comp);comp.connect(AC.destination)}if(AC.state==='suspended')AC.resume();return AC}
+function tone(m,vel=.8,len=1.6){const a=ac();if(!a)return null;const t=a.currentTime,f=440*2**((m-69)/12);const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3*vel,t+.006);g.gain.exponentialRampToValueAtTime(.09*vel,t+.3);g.gain.exponentialRampToValueAtTime(.0004,t+len);g.connect(master);
+ const os=[[f,'triangle',1],[f*2,'sine',.3],[f*3,'sine',.1]].map(([fr,ty,am])=>{const o=a.createOscillator(),og=a.createGain();o.type=ty;o.frequency.value=fr;og.gain.value=am;o.connect(og);og.connect(g);o.start(t);o.stop(t+len+.05);return o});
+ return{stop(){try{const n=a.currentTime;g.gain.cancelScheduledValues(n);g.gain.setValueAtTime(Math.max(g.gain.value,.0004),n);g.gain.exponentialRampToValueAtTime(.0004,n+.12);os.forEach(o=>o.stop(n+.15))}catch(e){}}}}
+function click(acc){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();o.frequency.value=acc?1600:1000;g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.05);o.connect(g);g.connect(master);o.start(t);o.stop(t+.06)}
+
+/* ---------- note input ---------- */
+const held=new Map();let sink=null,lastNote=null;
+function noteOn(m,vel,src){if(held.has(m))noteOff(m);let snd=null;if(S.sound!=='off'&&(src!=='midi'||S.sound==='on'))snd=tone(m,vel,3);held.set(m,{src,snd});lastNote=m;if(sink)sink(m,true);anyNote(m)}
+function noteOff(m){const h=held.get(m);if(!h)return;if(h.snd)h.snd.stop();held.delete(m);if(sink)sink(m,false)}
+const KMAP='awsedftgyhujkolp;';
+addEventListener('keydown',e=>{if(e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;const i=KMAP.indexOf(e.key.toLowerCase());if(i>=0&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){noteOn(60+i,.8,'key')}});
+addEventListener('keyup',e=>{const i=KMAP.indexOf(e.key.toLowerCase());if(i>=0)noteOff(60+i)});
+function anyNote(m){const d=$('#chipDot');d.classList.add('flash');clearTimeout(d._t);d._t=setTimeout(()=>d.classList.remove('flash'),180);const t=$('#testNote');if(t)t.textContent=nname(m)}
+
+/* ---------- MIDI ---------- */
+let midi=null,midiErr='';
+const inputs=()=>midi?[...midi.inputs.values()].filter(i=>i.state!=='disconnected'):[];
+async function connectMidi(){if(!navigator.requestMIDIAccess){midiErr='unsupported';renderConn();return}
+ try{midi=await navigator.requestMIDIAccess({sysex:false});midiErr='';midi.onstatechange=bindMidi;bindMidi();store.set('midi',1)}catch(e){midiErr='denied';renderConn()}}
+function bindMidi(){inputs().forEach(i=>{i.onmidimessage=onMidi});renderConn()}
+function onMidi(e){const d=e.data;if(!d||d.length<2)return;const c=d[0]&0xf0,n=d[1],v=d[2]||0;if(c===0x90&&v>0)noteOn(n,v/127,'midi');else if(c===0x80||(c===0x90&&v===0))noteOff(n)}
+function renderConn(){const ins=inputs();const on=ins.length>0;
+ $('#chipDot').classList.toggle('on',on);$('#chipTxt').textContent=on?ins[0].name:'Connect keyboard';
+ let msg;if(midiErr==='unsupported')msg='This browser can\'t talk to USB keyboards. Open Tonic in Chrome on Android (not inside another app\'s preview).';
+ else if(midiErr==='denied')msg='MIDI access was blocked. If you are viewing Tonic inside the Claude chat, open the full app link in Chrome instead. Otherwise allow MIDI in Chrome\'s site settings and try again.';
+ else if(!midi)msg='Not connected yet.';else if(!on)msg='No keyboard found. Check the cable and that the keyboard is switched on. It appears here as soon as it is plugged in.';
+ $('#connBox').innerHTML=`<div class="row" style="justify-content:space-between"><h2>Your keyboard</h2><button class="btn" id="btnConn">${midi?'Refresh':'Connect keyboard'}</button></div>
+ <div style="margin-top:12px">${on?ins.map(i=>`<div class="dev"><i class="dot on"></i>${esc(i.name)}<span class="muted" style="margin-left:auto;font-size:13px">${esc(i.manufacturer||'')}</span></div>`).join(''):`<p class="muted" style="margin:0">${msg}</p>`}</div>
+ <div class="row" style="margin-top:14px;align-items:baseline"><span class="muted">Test: press a key</span><span class="note-big" id="testNote" style="font-size:40px;margin-left:auto">${lastNote==null?'–':nname(lastNote)}</span></div>`;
+ $('#btnConn').onclick=connectMidi}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- keyboard drawing ---------- */
+function layout(lo,hi,x0,W){const wh=[];for(let m=lo;m<=hi;m++)if(!isBlack(m))wh.push(m);const ww=W/wh.length,keys={};
+ wh.forEach((m,i)=>keys[m]={m,x:x0+i*ww,w:ww,b:false});
+ for(let m=lo+1;m<hi;m++)if(isBlack(m)&&keys[m-1]){const L=keys[m-1];keys[m]={m,x:L.x+ww*.69,w:ww*.62,b:true}}
+ return{keys,wh,ww,x0}}
+function rr(g,x,y,w,h,r){g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,r);else g.rect(x,y,w,h)}
+function drawPiano(g,L,y,h,W,col){g.fillStyle='#0f0d12';g.fillRect(0,y-6,W,h+6);g.fillStyle='#ff3d7f';g.fillRect(0,y-3,W,3);
+ const ks=Object.values(L.keys);
+ ks.forEach(k=>{if(k.b)return;const c=col(k.m);g.fillStyle=c||'#fbfbfd';rr(g,k.x+1,y,k.w-2,h,[0,0,6,6]);g.fill();
+  if(!c){g.fillStyle='rgba(0,0,0,.07)';g.fillRect(k.x+1,y+h-8,k.w-2,8)}
+  const lab=S.names&&k.w>15?nname(k.m,false):(k.m%12===0&&k.w>13?nname(k.m):'');
+  if(lab){g.fillStyle=c?'#fff':'#8a8394';g.font=`800 ${Math.min(13,k.w*.42)}px Nunito,sans-serif`;g.textAlign='center';g.fillText(k.m%12===0?nname(k.m):lab,k.x+k.w/2,y+h-12)}});
+ ks.forEach(k=>{if(!k.b)return;const c=col(k.m);g.fillStyle=c||'#1b1820';rr(g,k.x,y,k.w,h*.62,[0,0,4,4]);g.fill();if(!c){g.fillStyle='rgba(255,255,255,.12)';g.fillRect(k.x+k.w*.2,y+h*.62-7,k.w*.6,3)}})}
+function hit(L,y0,h,x,y){if(y<y0-6||y>y0+h)return null;const ks=Object.values(L.keys);if(y<y0+h*.62){const b=ks.find(k=>k.b&&x>=k.x&&x<=k.x+k.w);if(b)return b.m}const i=Math.floor((x-L.x0)/L.ww);return L.wh[Math.max(0,Math.min(L.wh.length-1,i))]}
+function attachTouch(cv,get){const pts=new Map();
+ cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect(),q=get();if(!q)return;const m=hit(q.L,q.y,q.h,e.clientX-r.left,e.clientY-r.top);if(m==null)return;e.preventDefault();try{cv.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,m);noteOn(m,.8,'touch')});
+ cv.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;const r=cv.getBoundingClientRect(),q=get();const m=hit(q.L,q.y,q.h,e.clientX-r.left,e.clientY-r.top);const o=pts.get(e.pointerId);if(m!=null&&m!==o){noteOff(o);pts.set(e.pointerId,m);noteOn(m,.8,'touch')}});
+ const up=e=>{if(!pts.has(e.pointerId))return;noteOff(pts.get(e.pointerId));pts.delete(e.pointerId)};
+ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up)}
+function fit(cv){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);return{g,W:r.width,H:r.height}}
+
+/* ---------- mini keyboard picture ---------- */
+function miniKeys(ms,hand){let lo=Math.min(...ms),hi=Math.max(...ms);lo-=((lo%12)+12)%12;hi=Math.max(hi+(11-hi%12),lo+23)+1;
+ const wh=[];for(let m=lo;m<=hi;m++)if(!isBlack(m))wh.push(m);const W=wh.length*20,set=new Set(ms);let s=`<svg viewBox="-4 -4 ${W+8} 108" aria-hidden="true"><rect x="-4" y="-4" width="${W+8}" height="108" rx="12" fill="#17141c"/>`;
+ wh.forEach((m,i)=>{s+=`<rect x="${i*20+1}" y="2" width="18" height="96" rx="3" fill="${set.has(m)?(hand[m]||'#ffd166'):'#fbfbfd'}"/>`});
+ wh.forEach((m,i)=>{if(isBlack(m+1)&&m+1<hi)s+=`<rect x="${i*20+13}" y="2" width="13" height="58" rx="2" fill="${set.has(m+1)?(hand[m+1]||'#ffd166'):'#1b1820'}"/>`});
+ return s+'</svg>'}
+const itemNotes=it=>it.gen?(it.gen==='treble'?seq('C4 E4 G4 B4 D5 F5','R'):seq('G2 B2 D3 F3 A3','L')):[...seq(it.rh,'R'),...seq(it.lh,'L')];
+function heroPic(it){const ns=itemNotes(it),hand={};ns.forEach(n=>hand[n.m]=n.h==='R'?'#ffd166':'#7fb2ff');return miniKeys([...new Set(ns.map(n=>n.m))],hand)}
+
+/* ---------- views ---------- */
+const STAR='<svg viewBox="0 0 24 24" fill="#ffb020"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const FIRE='<svg viewBox="0 0 24 24" fill="#ff3d7f"><path d="M12 2s5 4.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 1-3.5s.5 2 2 2.5C10 8 12 2 12 2z"/></svg>';
+const LOCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const starRow=n=>`<span class="stars">${'★'.repeat(n)}<i>${'★'.repeat(3-n)}</i></span>`;
+const unlocked=i=>S.unlock||i===0||(prog[LES[i-1].id]||0)>=1;
+function renderLearn(){const ni=Math.max(0,LES.findIndex((l,i)=>!prog[l.id]&&unlocked(i)));const nx=LES[ni]||LES[0];
+ let h=`<h1>Learn piano with your Casio</h1><p class="sub">Short lessons that listen to what you play.</p>
+ <div class="stats"><span class="stat">${STAR}${totalStars()} stars</span><span class="stat">${FIRE}${streak()}-day streak</span><span class="stat">${LES.filter(l=>prog[l.id]).length}/${LES.length} lessons</span></div>
+ <div class="hero"><div><small>Next up · ${esc(UNITS[nx.unit].t)}</small><h2>${esc(nx.t)}</h2><button class="btn" data-les="${nx.id}">Start lesson</button></div>${heroPic(nx)}</div>`;
+ let k=0;UNITS.forEach((u,ui)=>{h+=`<div class="unit"><h2>Unit ${ui+1}: ${esc(u.t)}</h2><small>${esc(u.d)}</small></div><div class="path">`;
+  u.ls.forEach(l=>{const i=LES.findIndex(x=>x.id===l.id),st=prog[l.id]||0,lk=!unlocked(i);const dx=Math.round(Math.sin(k++*1.1)*70);
+   h+=`<button class="node ${st?'done':''} ${lk?'lock':''} ${i===ni&&!st?'next':''}" style="--dx:${dx}px" data-les="${l.id}"><span class="disc">${lk?LOCK:i+1}</span><b>${esc(l.t)}</b>${starRow(st)}</button>`});
+  h+='</div>'});
+ $('#v-learn').innerHTML=h;
+ $$('#v-learn [data-les]').forEach(b=>b.onclick=()=>{const i=LES.findIndex(x=>x.id===b.dataset.les);if(!unlocked(i)){toast('Earn a star on the previous lesson to unlock this one.');return}openItem(LES[i],'lesson')})}
+let lvlF=0;
+const LCOL=['','#ff3d7f','#2f7bff','#17141c'];
+function cover(s){const c=LCOL[s.lvl];let r='';for(let i=0;i<5;i++)r+=`<rect x="${4+i*10}" y="18" width="8" height="34" rx="2" fill="#fff" opacity=".95"/>`;[0,1,3].forEach(i=>r+=`<rect x="${10+i*10}" y="18" width="5" height="20" rx="1" fill="${c}"/>`);return`<svg class="cover" viewBox="0 0 56 56"><rect width="56" height="56" fill="${c}"/>${r}<text x="8" y="13" font-size="10" font-weight="900" fill="#fff" font-family="Nunito,sans-serif">${s.ts===3?'3/4':'4/4'}</text></svg>`}
+function renderSongs(){$('#songList').innerHTML=SONGS.filter(s=>!lvlF||s.lvl===lvlF).map(s=>`<button class="song" data-s="${s.id}">${cover(s)}<span style="flex:1"><b>${esc(s.t)}</b><small>${esc(s.by)} · ${LVL[s.lvl]}</small><br>${starRow(prog[s.id]||0)}</span></button>`).join('');
+ $$('#songList [data-s]').forEach(b=>b.onclick=()=>openItem(song(b.dataset.s),'song'))}
+$$('#lvlSeg button').forEach(b=>b.onclick=()=>{lvlF=+b.dataset.l;$$('#lvlSeg button').forEach(x=>x.classList.toggle('on',x===b));renderSongs()});
+function segHtml(key,opts,val){return`<div class="seg" data-k="${key}">${opts.map(([v,l])=>`<button data-v="${v}" class="${String(v)===String(val)?'on':''}">${l}</button>`).join('')}</div>`}
+function renderSet(){$('#setBox').innerHTML=`<h2>Settings</h2>
+ <label class="f">App sound</label>${segHtml('sound',[['auto','Screen keys only'],['on','Always'],['off','Off']],S.sound)}
+ <p class="muted" style="font-size:13px;margin:6px 0 0">"Screen keys only" lets your Casio make the sound when it is connected.</p>
+ <label class="f">Note names on keys</label>${segHtml('names',[[true,'Show'],[false,'Hide']],S.names)}
+ <label class="f">Notation</label>${segHtml('notation',[['auto','Auto'],['fall','Falling notes'],['both','Sheet + falling']],S.notation)}
+ <label class="f">Default practice mode</label>${segHtml('mode',[['wait','Wait for me'],['play','Keep time']],S.mode)}
+ <label class="f">Metronome</label>${segHtml('metro',[[false,'Off'],[true,'On']],S.metro)}
+ <label class="f">Lessons</label>${segHtml('unlock',[[false,'Unlock in order'],[true,'Unlock all']],S.unlock)}
+ <div class="row" style="margin-top:20px"><button class="btn ghost" id="rst">Reset progress</button></div>`;
+ $$('#setBox .seg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{const k=sg.dataset.k,v=b.dataset.v;S[k]=v==='true'?true:v==='false'?false:v;saveS();renderSet();renderLearn();drawFree()}));
+ const r=$('#rst');r.onclick=()=>{if(r.dataset.c){prog={};store.set('prog',prog);store.set('days',[]);renderLearn();renderSongs();toast('Progress reset');renderSet()}else{r.dataset.c=1;r.textContent='Tap again to erase all stars'}}}
+function showView(v){$$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));$$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));sink=v==='free'?freeSink:null;$('#main').scrollTop=0;if(v==='free')requestAnimationFrame(drawFree)}
+$$('#tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.v));
+$('#chip').onclick=()=>{showView('setup');if(!midi)connectMidi()};
+
+/* ---------- free play ---------- */
+const F={base:48,hist:[]};const fcv=$('#freeCv');let FL=null,fg=null;
+function drawFree(){if(!$('#v-free').classList.contains('on'))return;const f=fit(fcv);fg=f.g;const nW=Math.max(14,Math.min(36,Math.round(f.W/30)));const oct=Math.max(2,Math.round(nW/7));const lo=F.base,hi=lo+oct*12;FL={L:layout(lo,hi,0,f.W),y:8,h:f.H-8};
+ fg.clearRect(0,0,f.W,f.H);drawPiano(fg,FL.L,FL.y,FL.h,f.W,m=>held.has(m)?C.rh:null)}
+const CH=[['',[0,4,7]],['m',[0,3,7]],['dim',[0,3,6]],['aug',[0,4,8]],['7',[0,4,7,10]],['maj7',[0,4,7,11]],['m7',[0,3,7,10]],['sus2',[0,2,7]],['sus4',[0,5,7]]];
+function chordName(){const pcs=[...new Set([...held.keys()].map(m=>m%12))];if(pcs.length<3)return'';for(const r of pcs)for(const[n,iv]of CH){const want=iv.map(i=>(r+i)%12);if(want.length===pcs.length&&want.every(p=>pcs.includes(p)))return NN[r]+(n?n:' major')+' chord'}return''}
+function freeSink(m,on){if(on){F.hist.unshift(nname(m));F.hist=F.hist.slice(0,14);$('#freeNote').textContent=nname(m)}const c=chordName();$('#freeChord').textContent=c||(held.size?[...held.keys()].sort((a,b)=>a-b).map(x=>nname(x)).join(' · '):'Press a key');$('#freeHist').innerHTML=F.hist.map(x=>`<span>${x}</span>`).join('');drawFree()}
+attachTouch(fcv,()=>FL);
+$('#octDn').onclick=()=>{F.base=Math.max(24,F.base-12);drawFree()};$('#octUp').onclick=()=>{F.base=Math.min(84,F.base+12);drawFree()};
+
+/* ---------- player ---------- */
+const P={kc:new Map(),flash:new Map(),pops:[]};const cv=$('#cv');let PG=null;
+function genNotes(kind){const pool=(kind==='treble'?'C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 F5 G5':'F2 G2 A2 B2 C3 D3 E3 F3 G3 A3 B3 C4').split(' ').map(pn);let prev=-1,out=[];for(let i=0;i<14;i++){let m;do m=pool[Math.floor(Math.random()*pool.length)];while(m===prev);prev=m;out.push({m,s:i*2,d:2,h:kind==='treble'?'R':'L'})}return out}
+function openItem(it,kind){P.item=it;P.kind=kind;P.mode=it.gen?'wait':S.mode;P.hands='both';P.tempo=1;P.listen=false;$('#pTitle').textContent=it.t;$('#play').classList.add('on');sink=playerSink;prepare();intro(false)}
+function prepare(){const it=P.item;const raw=it.gen?genNotes(it.gen):[...seq(it.rh,'R'),...seq(it.lh,'L')];raw.sort((a,b)=>a.s-b.s||a.m-b.m);
+ raw.forEach(n=>{n.st=0;n.active=!P.listen&&(P.hands==='both'||P.hands===n.h)});P.notes=raw;P.autos=raw.filter(n=>!n.active);P.ai=0;
+ const gs=[];raw.filter(n=>n.active).forEach(n=>{let g=gs[gs.length-1];if(!g||Math.abs(g.s-n.s)>1e-6){g={s:n.s,ns:[],left:0,done:false};gs.push(g)}g.ns.push(n);g.left++});
+ P.groups=gs;P.gi=0;P.ts=it.ts||4;P.end=Math.max(...raw.map(n=>n.s+n.d));P.t=-P.ts-1e-4;P.hits=0;P.miss=0;P.wrong=0;P.streak=0;P.running=false;P.finished=false;P.bpm=(it.bpm||90)*P.tempo;
+ const src=raw.some(n=>n.active)?raw.filter(n=>n.active):raw;let lo=Math.min(...src.map(n=>n.m)),hi=Math.max(...src.map(n=>n.m));lo-=lo%12;hi+=11-hi%12;let flip=0;while(hi-lo<23){if(flip++%2===0&&lo>36)lo-=12;else hi+=12}P.lo=lo;P.hi=hi+1;
+ P.kc.clear();P.flash.clear();P.pops=[];resize();updScore()}
+function resize(){if(!$('#play').classList.contains('on'))return;const f=fit(cv);PG=f.g;P.W=f.W;P.H=f.H;P.K=Math.max(80,Math.min(210,f.H*.3));P.ky=P.H-P.K;
+ P.nota=P.item.notation||(S.notation==='auto'?(P.H>=470?'both':'fall'):S.notation);P.staffH=Math.min(150,P.ky*.42);P.L=layout(P.lo,P.hi,0,P.W)}
+addEventListener('resize',()=>{resize();drawFree()});
+const tolB=()=>Math.max(.25,.17*P.bpm/60);
+const hc=h=>h==='R'?C.rh:C.lh;
+function nextGroup(){for(let i=P.gi;i<P.groups.length;i++)if(!P.groups[i].done)return P.groups[i];return null}
+function pop(t,c){P.pops.push({t,c,at:performance.now()})}
+function updScore(){$('#pScore').textContent=P.listen?'Listening':P.hits+' / '+P.groups.reduce((a,g)=>a+g.ns.length,0)}
+function playerSink(m,on){if(!on){P.kc.delete(m);return}if(!P.running||P.listen||P.finished||P.t<-.5)return;const tol=tolB();let got=null,near=false;
+ for(let i=P.gi;i<P.groups.length;i++){const g=P.groups[i];if(g.done)continue;const early=P.mode==='wait'?.75:tol;if(g.s-P.t>early)break;if(P.mode==='play'&&P.t-g.s>tol)continue;near=true;const n=g.ns.find(n=>n.m===m&&n.st===0);if(n){got=n;n.st=1;if(!--g.left)g.done=true;break}if(P.mode==='wait')break}
+ if(got){P.hits++;P.streak++;P.kc.set(m,'ok');if(P.streak%10===0)pop(P.streak+' in a row!',C.ok)}
+ else if(P.mode==='wait'&&!near){/* pressed before the note arrived: ignore */}
+ else{P.wrong++;P.streak=0;P.kc.set(m,'bad')}updScore()}
+function step(dt){const adv=dt*P.bpm/60;let nt=P.t+adv;if(P.mode==='wait'){const g=nextGroup();if(g&&nt>g.s)nt=Math.max(P.t,g.s)}
+ if(Math.floor(nt)>Math.floor(P.t)){const b=Math.floor(nt);if(b<0||S.metro)click(((b%P.ts)+P.ts)%P.ts===0)}
+ P.t=nt;const now=performance.now();
+ while(P.ai<P.autos.length&&P.autos[P.ai].s<=P.t){const n=P.autos[P.ai++];n.st=3;const sec=n.d*60/P.bpm;if(S.sound!=='off')tone(n.m,.6,Math.max(.4,sec)+.4);P.flash.set(n.m,{c:hc(n.h),until:now+sec*900})}
+ const tol=tolB();while(P.gi<P.groups.length){const g=P.groups[P.gi];if(g.done){P.gi++;continue}if(P.mode==='play'&&g.s<P.t-tol){g.ns.forEach(n=>{if(n.st===0){n.st=2;P.miss++}});g.done=true;P.gi++;P.streak=0;pop('Miss',C.bad);continue}break}
+ if(P.gi>=P.groups.length&&P.ai>=P.autos.length&&P.t>=P.end+.4)finish()}
+function stepOf(m){const pc=((m%12)+12)%12;return(Math.floor(m/12)-5)*7+[0,0,1,1,2,3,3,4,4,5,5,6][pc]}
+function noteCol(n){return n.st===1?C.ok:n.st===2?al(C.mute,.6):n.st===3?al(hc(n.h),.4):hc(n.h)}
+function drawStaff(g,y,h,W){const sheet=P.nota==='sheet',half=sheet?Math.max(4,Math.min(9,(h-20)/30)):Math.max(3,Math.min(5,(h-12)/30)),mid=y+h/2,x0=half*12+30,pxb=half*(sheet?8:9);
+ g.fillStyle=C.soft;g.fillRect(0,y,W,h);g.strokeStyle=al(C.ink,.5);g.lineWidth=1;
+ [2,4,6,8,10,-2,-4,-6,-8,-10].forEach(s=>{const yy=Math.round(mid-s*half)+.5;g.beginPath();g.moveTo(8,yy);g.lineTo(W-8,yy);g.stroke()});
+ g.beginPath();g.moveTo(8.5,mid-10*half);g.lineTo(8.5,mid+10*half);g.stroke();
+ g.fillStyle=C.ink;g.textAlign='left';g.textBaseline='alphabetic';g.font=`${half*7.6}px "Noto Music","Segoe UI Symbol",serif`;g.fillText('𝄞',12,mid-half*.6);g.font=`${half*4.6}px "Noto Music","Segoe UI Symbol",serif`;g.fillText('𝄢',14,mid+half*6.4);
+ g.fillStyle=al(C.rh,.12);g.fillRect(x0-half*2,y,half*4,h);
+ const t0=P.t-(x0-half*10)/pxb,t1=P.t+(W-x0)/pxb;
+ P.notes.forEach(n=>{if(n.s<t0||n.s>t1)return;const nx=x0+(n.s-P.t)*pxb,st=stepOf(n.m),ny=mid-st*half,c=noteCol(n);
+  g.strokeStyle=al(C.ink,.6);g.lineWidth=1;const led=l=>{const yy=Math.round(mid-l*half)+.5;g.beginPath();g.moveTo(nx-half*1.9,yy);g.lineTo(nx+half*1.9,yy);g.stroke()};
+  if(st>=12)for(let l=12;l<=st;l+=2)led(l);if(st<=-12)for(let l=-12;l>=st;l-=2)led(l);if(st===0)led(0);
+  g.save();g.translate(nx,ny);g.rotate(-.35);g.beginPath();g.ellipse(0,0,half*1.3,half*.92,0,0,7);if(n.d>=2){g.lineWidth=Math.max(2,half*.4);g.strokeStyle=c;g.stroke()}else{g.fillStyle=c;g.fill()}g.restore();
+  if(isBlack(n.m)){g.fillStyle=c;g.font=`900 ${half*2.6}px Nunito,sans-serif`;g.textAlign='center';g.fillText('♯',nx-half*2.8,ny+half*.9)}});
+ g.strokeStyle=C.rh;g.lineWidth=2;g.beginPath();g.moveTo(x0,y+4);g.lineTo(x0,y+h-4);g.stroke()}
+function drawFall(g,y0,y1,W){const fh=y1-y0,lookB=2.6*P.bpm/60,ppb=fh/lookB,L=P.L;g.save();g.beginPath();g.rect(0,y0,W,fh);g.clip();
+ Object.values(L.keys).forEach(k=>{if(k.m%12===0||k.m%12===5){g.fillStyle=al(C.line,k.m%12===0?1:.5);g.fillRect(Math.round(k.x),y0,1,fh)}});
+ for(let b=Math.ceil(P.t);b<P.t+lookB+1;b++){const yy=Math.round(y1-(b-P.t)*ppb)+.5;g.fillStyle=al(C.line,b%P.ts===0?1:.45);g.fillRect(0,yy,W,b%P.ts===0?2:1)}
+ const showN=P.item.names!==false&&S.names;
+ for(const n of P.notes){if(n.s-P.t>lookB+.2)break;if(n.s+n.d<P.t-.6)continue;const k=L.keys[n.m];if(!k)continue;const yb=y1-(n.s-P.t)*ppb,yt=yb-n.d*ppb,pad=k.b?1:3;
+  g.fillStyle=noteCol(n);rr(g,k.x+pad,yt+2,k.w-pad*2,Math.max(6,yb-yt-3),Math.min(8,k.w/3));g.fill();
+  if(showN&&k.w>=14&&yb-yt>18){g.fillStyle='#fff';g.font=`900 ${Math.min(13,k.w*.45)}px Nunito,sans-serif`;g.textAlign='center';g.fillText(nname(n.m,false),k.x+k.w/2,yb-8)}}
+ const gr=g.createLinearGradient(0,y1-24,0,y1);gr.addColorStop(0,al(C.rh,0));gr.addColorStop(1,al(C.rh,.25));g.fillStyle=gr;g.fillRect(0,y1-24,W,24);g.restore()}
+function targets(){const t=new Map(),tol=tolB();if(P.listen)return t;
+ if(P.mode==='wait'){const g=nextGroup(),now=performance.now();if(g!==P.wg){P.wg=g;P.since=now}if(P.item.gen&&now-P.since<5000)return t;if(g&&g.s-P.t<=.75)g.ns.forEach(n=>{if(n.st===0)t.set(n.m,n.h)})}
+ else P.groups.slice(P.gi,P.gi+4).forEach(g=>{if(!g.done&&Math.abs(g.s-P.t)<=tol)g.ns.forEach(n=>{if(n.st===0)t.set(n.m,n.h)})});return t}
+function draw(){const g=PG;if(!g)return;const W=P.W,H=P.H,ky=P.ky;g.clearRect(0,0,W,H);let top=0;
+ if(P.nota!=='fall'){const sh=P.nota==='sheet'?ky-8:P.staffH;drawStaff(g,0,sh,W);top=sh}
+ if(P.nota!=='sheet')drawFall(g,top,ky-6,W);
+ const tg=targets(),now=performance.now(),pulse=.55+.25*Math.sin(now/180);
+ drawPiano(g,P.L,ky,P.K,W,m=>{if(held.has(m)){const k=P.kc.get(m);return k==='ok'?C.ok:k==='bad'?C.bad:C.rh}const f=P.flash.get(m);if(f&&f.until>now)return al(f.c,.55);if(tg.has(m))return al(hc(tg.get(m)),pulse);return null});
+ P.pops=P.pops.filter(p=>now-p.at<900);P.pops.forEach(p=>{const a=(now-p.at)/900;g.globalAlpha=1-a;g.fillStyle=p.c;g.font='900 24px Nunito,sans-serif';g.textAlign='center';g.fillText(p.t,W/2,ky-30-a*30);g.globalAlpha=1});
+ if(P.running&&P.t<0){const n=Math.ceil(-P.t),cy=P.nota==='sheet'?ky/2:(top+ky)/2;g.fillStyle=al(C.ink,.8);g.font='900 64px Nunito,sans-serif';g.textAlign='center';g.fillText(n,P.nota==='sheet'?W-60:W/2,cy+22)}
+ $('#pProg').style.width=Math.max(0,Math.min(100,P.t/P.end*100))+'%'}
+let lastTs=0;function frame(ts){requestAnimationFrame(frame);const dt=Math.min(.05,Math.max(0,(ts-lastTs)/1000));lastTs=ts;if(!$('#play').classList.contains('on'))return;if(P.running&&!P.finished)step(dt);draw()}
+requestAnimationFrame(frame);
+attachTouch(cv,()=>P.L?{L:P.L,y:P.ky,h:P.K}:null);
+let wl=null;async function wake(){try{if(navigator.wakeLock&&!wl){wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>wl=null)}}catch(e){}}
+function intro(paused){const it=P.item,hasL=itemNotes(it).some(n=>n.h==='L'),hasR=itemNotes(it).some(n=>n.h==='R'),portrait=innerHeight>innerWidth&&innerWidth<600;
+ $('#introCard').innerHTML=`<small class="muted" style="font-weight:800">${P.kind==='lesson'?'Lesson '+(LES.indexOf(it)+1)+' · '+esc(UNITS[it.unit].t):esc(it.by)+' · '+LVL[it.lvl]}</small><h2>${esc(it.t)}</h2>${it.tip?`<p>${esc(it.tip)}</p>`:''}
+ ${it.gen?'':`<label class="f">Mode</label>${segHtml('mode',[['wait','Wait for me'],['play','Keep time']],P.mode)}`}
+ ${hasL&&hasR?`<label class="f">Hands</label>${segHtml('hands',[['both','Both'],['R','Right'],['L','Left']],P.hands)}`:''}
+ <label class="f">Speed</label>${segHtml('tempo',[[.5,'50%'],[.75,'75%'],[1,'100%']],P.tempo)}
+ ${portrait?'<div class="hint">Turn your phone sideways for a bigger keyboard.</div>':''}
+ ${!inputs().length?'<div class="hint">No keyboard connected, so you can tap the keys on screen. Connect your Casio from the Keyboard tab.</div>':''}
+ <div class="row" style="margin-top:18px">${paused?'<button class="btn" id="iResume">Resume</button><button class="btn ghost" id="iStart">Restart</button>':'<button class="btn" id="iStart">Start</button>'}${it.gen?'':'<button class="btn ghost" id="iListen">Listen first</button>'}</div>`;
+ $$('#introCard .seg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{P[sg.dataset.k]=sg.dataset.k==='tempo'?+b.dataset.v:b.dataset.v;sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))}));
+ const go=listen=>{ac();wake();P.listen=listen;prepare();$('#mIntro').classList.remove('on');P.running=true;try{if(innerWidth<900&&!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{})}catch(e){}};
+ $('#iStart').onclick=()=>go(false);const l=$('#iListen');if(l)l.onclick=()=>go(true);const r=$('#iResume');if(r)r.onclick=()=>{$('#mIntro').classList.remove('on');P.running=true};
+ $('#mRes').classList.remove('on');$('#mIntro').classList.add('on')}
+$('#pPause').onclick=()=>{if(P.finished)return;P.running=false;intro(P.t>-P.ts)};
+$('#pClose').onclick=()=>{P.running=false;$('#play').classList.remove('on');$('#mIntro').classList.remove('on');$('#mRes').classList.remove('on');try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}try{wl&&wl.release()}catch(e){}sink=$('#v-free').classList.contains('on')?freeSink:null;renderLearn();renderSongs()};
+function finish(){P.finished=true;P.running=false;const it=P.item;
+ if(P.listen){$('#resCard').innerHTML=`<h2>Your turn</h2><p>That is how ${esc(it.t)} sounds. Now play it yourself.</p><div class="row" style="margin-top:16px"><button class="btn" id="rPlay">Start playing</button><button class="btn ghost" id="rDone">Close</button></div>`;
+  $('#mRes').classList.add('on');$('#rPlay').onclick=()=>{P.listen=false;intro(false)};$('#rDone').onclick=()=>$('#pClose').click();return}
+ const total=P.groups.reduce((a,g)=>a+g.ns.length,0)||1,acc=Math.max(0,Math.min(1,P.hits/(total+.5*P.wrong))),stars=acc>=.9?3:acc>=.75?2:acc>=.5?1:0;
+ const full=P.hands==='both'&&P.tempo>=.75,key=it.id,prev=prog[key]||0;let earned=full?stars:Math.min(stars,1);if(earned>prev){prog[key]=earned;store.set('prog',prog)}
+ const days=store.get('days',[]);if(!days.includes(today())){days.push(today());store.set('days',days.slice(-400))}
+ const li=LES.indexOf(it),nxt=P.kind==='lesson'&&li>=0&&li<LES.length-1&&(prog[key]||0)>=1?LES[li+1]:null;
+ const msg=stars===3?'Brilliant!':stars===2?'Great job!':stars===1?'Nice work!':'Keep practising';
+ $('#resCard').innerHTML=`<div class="bigstars">${[0,1,2].map(i=>i<stars?STAR:STAR.replace('#ffb020','var(--line)')).join('')}</div><h2 style="text-align:center">${msg}</h2>
+ <div class="res"><div><b>${Math.round(acc*100)}%</b><small>accuracy</small></div><div><b>${P.hits}/${total}</b><small>notes</small></div><div><b>${P.mode==='play'?P.miss:P.wrong}</b><small>${P.mode==='play'?'missed':'wrong keys'}</small></div></div>
+ ${!full&&stars>1?'<p class="muted" style="font-size:14px;text-align:center">Play with both hands at 75% speed or faster to earn all three stars.</p>':''}
+ ${stars<1?'<p class="muted" style="font-size:14px;text-align:center">Try a slower speed in Wait mode, then build up.</p>':''}
+ <div class="row" style="margin-top:12px;justify-content:center">${nxt?'<button class="btn" id="rNext">Next lesson</button>':''}<button class="btn ${nxt?'ghost':''}" id="rAgain">Play again</button><button class="btn ghost" id="rDone">Done</button></div>`;
+ $('#mRes').classList.add('on');$('#rAgain').onclick=()=>intro(false);$('#rDone').onclick=()=>$('#pClose').click();if(nxt)$('#rNext').onclick=()=>openItem(nxt,'lesson')}
+
+/* ---------- boot ---------- */
+readColors();renderLearn();renderSongs();renderSet();renderConn();
+if(store.get('midi',0)&&navigator.requestMIDIAccess)connectMidi();
+try{if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude|anthropic/.test(location.hostname))navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+}
+</script>
+</body>
+</html>
